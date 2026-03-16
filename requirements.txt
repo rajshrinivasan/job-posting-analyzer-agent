@@ -1,0 +1,4 @@
+python-dotenv
+agent-framework-core
+agent-framework-orchestrations
+openai
