@@ -13,22 +13,33 @@ Agents:
 Instructions are loaded from job_posting_analyzer_instructions.txt.
 """
 
+import argparse
 import asyncio
 import sys
 from pathlib import Path
 from typing import cast
 from dotenv import load_dotenv
-from agent_framework import Message, WorkflowEvent
+from docx import Document
+from agent_framework import Message
 from agent_framework.orchestrations import ConcurrentBuilder
 from agent_framework.openai import OpenAIResponsesClient
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from agent_utils import load_instructions
 
+
+def read_job_posting(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def read_candidate_cv(path: Path) -> str:
+    doc = Document(path)
+    return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+
 HERE = Path(__file__).parent
 
 
-async def main():
+async def main(job_posting_path: Path, candidate_cv_path: Path):
     load_dotenv(HERE / ".env")
 
     # ── Load agent instructions from file ───────────────────────────────────
@@ -54,38 +65,8 @@ async def main():
     )
 
     # ── Job posting + candidate CV ───────────────────────────────────────
-    job_posting = """
-    Role: Mid-Level Data Engineer
-    Company: FinTech startup, London (hybrid, 2 days in office)
-
-    We are looking for a data engineer to join our growing platform team.
-    You will design and maintain data pipelines, work closely with analysts,
-    and help shape our cloud data architecture on Azure.
-
-    Requirements:
-    - 3+ years experience in data engineering
-    - Strong Python skills
-    - Experience with Azure Data Factory or similar ETL tools
-    - SQL proficiency
-    - Familiarity with REST APIs
-    - Experience working in Agile teams
-
-    Nice to have:
-    - Kubernetes or containerisation experience
-    - Terraform or infrastructure-as-code
-    - CI/CD pipeline knowledge
-
-    We offer a collaborative, fast-paced environment where you'll wear many hats.
-    Flexible working hours. Competitive salary — we do not disclose a range upfront.
-    """
-
-    candidate_cv = """
-    4 years experience as a Data Engineer at a mid-size consultancy.
-    Skills: Python, SQL, Azure (Data Factory, Blob Storage, Synapse), REST APIs,
-    Pandas, dbt, Git. Worked in Agile squads delivering BI and pipeline projects.
-    No formal experience with Kubernetes, Terraform, or CI/CD tooling.
-    Based in London.
-    """
+    job_posting = read_job_posting(job_posting_path)
+    candidate_cv = read_candidate_cv(candidate_cv_path)
 
     prompt = f"Job posting:\n{job_posting}\n\nCandidate CV:\n{candidate_cv}"
 
@@ -114,4 +95,8 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="Analyse a job posting against a candidate CV.")
+    parser.add_argument("job_posting", type=Path, help="Path to the job posting .txt file")
+    parser.add_argument("candidate_cv", type=Path, help="Path to the candidate CV .docx file")
+    args = parser.parse_args()
+    asyncio.run(main(args.job_posting, args.candidate_cv))
