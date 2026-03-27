@@ -1,54 +1,100 @@
-# Pattern 2: Concurrent — Job Posting Analyzer
+# Job Posting Analyzer — Concurrent Multi-Agent System
 
-## What it does
-Broadcasts a job posting and candidate CV to three specialist agents
-simultaneously. All agents run in parallel and produce independent analyses.
+A portfolio project demonstrating the **concurrent orchestration** pattern for multi-agent AI systems.
 
-## Pipeline
+Three specialist agents analyse the same job posting simultaneously — no agent waits for another, and none sees the others' output. Results are collected and displayed together once all three finish.
+
 ```
-job posting + CV (same prompt)
-   ┌──────────────────────────────┐
-   ↓              ↓               ↓
-[skills_matcher] [culture_assessor] [salary_estimator]
-   ↓              ↓               ↓
-   └──────────────────────────────┘
-         aggregated output
-              ↓
-      printed to console
+         job posting + CV
+               │
+    ┌──────────┼──────────┐
+    ▼          ▼          ▼
+[skills_  [culture_  [salary_
+ matcher]  assessor]  estimator]
+    │          │          │
+    └──────────┼──────────┘
+               ▼
+      aggregated output
+        (printed to console)
 ```
 
-## Key concept
-Unlike sequential, agents here do not see each other's output. Each one
-analyses the same input independently. The framework waits for all three to
-finish, then bundles the results into a single aggregated response.
+---
 
-## Files
-| File | Purpose |
+## Agents
+
+| Agent | What it does |
 |---|---|
-| `job_posting_analyzer.py` | Main script |
-| `job_posting_analyzer_instructions.txt` | Agent instructions (`[skills_matcher]`, `[culture_assessor]`, `[salary_estimator]`) |
-| `agent_utils.py` | `load_instructions()` — parses the sectioned instructions file |
+| `skills_matcher` | Compares required/preferred skills from the JD against the candidate's CV. Reports matched skills, gaps, and a match verdict. |
+| `culture_assessor` | Reads the job posting language for culture signals. Reports green flags, red flags, and an overall culture verdict. |
+| `salary_estimator` | Infers a realistic salary band from role, seniority, skills, and location. Includes a negotiation note. |
+
+---
+
+## Tech stack
+
+- **Python 3.10+**
+- [`agent-framework-core`](https://pypi.org/project/agent-framework-core/) + [`agent-framework-orchestrations`](https://pypi.org/project/agent-framework-orchestrations/) — lightweight agent abstractions and the `ConcurrentBuilder` orchestration pattern
+- **OpenAI `gpt-4o`** via `agent-framework-openai`
+- `python-docx` — reads `.docx` CV files
+- `python-dotenv` — loads the API key from `.env`
+
+---
 
 ## Setup
+
+**1. Clone and create a virtual environment**
+
 ```bash
+git clone <repo-url>
+cd job-posting-analyzer-agent
 python -m venv venv
-venv\Scripts\pip install -r requirements.txt
 ```
 
-Copy `.env.example` to `.env` and set your key:
+**2. Activate the virtual environment**
+
+```bash
+# macOS / Linux
+source venv/bin/activate
+
+# Windows
+venv\Scripts\activate
+```
+
+**3. Install dependencies**
+
+```bash
+pip install -r requirements.txt
+```
+
+**4. Add your OpenAI API key**
+
+Copy `.env.example` to `.env` and fill in your key:
+
+```bash
+cp .env.example .env
+```
+
 ```
 OPENAI_API_KEY="sk-..."
 ```
 
-## Run
-Pass the job posting (`.txt`) and candidate CV (`.docx`) as arguments:
+---
+
+## Usage
+
 ```bash
-python job_posting_analyzer.py path/to/job_posting.txt path/to/cv.docx
+python job_posting_analyzer.py <path/to/job_posting.txt> <path/to/cv.docx>
 ```
 
-## Example inputs
+- `job_posting.txt` — plain text file containing the job description
+- `cv.docx` — candidate CV as a Word document
+
+---
+
+## Example
 
 **job_posting.txt**
+
 ```
 Role: Mid-Level Data Engineer
 Company: FinTech startup, London (hybrid, 2 days in office)
@@ -75,6 +121,7 @@ Flexible working hours. Competitive salary — we do not disclose a range upfron
 ```
 
 **cv.docx** (content)
+
 ```
 4 years experience as a Data Engineer at a mid-size consultancy.
 Skills: Python, SQL, Azure (Data Factory, Blob Storage, Synapse), REST APIs,
@@ -83,7 +130,8 @@ No formal experience with Kubernetes, Terraform, or CI/CD tooling.
 Based in London.
 ```
 
-## Example output
+**Output**
+
 ```
 ============================================================
 JOB POSTING ANALYSIS
@@ -107,3 +155,25 @@ Factors: Mid-level seniority, London location, Azure cloud skills premium, FinTe
 Negotiation note: Candidate has leverage on the core stack; Kubernetes/Terraform gap limits the ceiling.
 ------------------------------------------------------------
 ```
+
+---
+
+## Project structure
+
+```
+├── job_posting_analyzer.py              # Entry point — builds and runs the concurrent workflow
+├── job_posting_analyzer_instructions.txt # Agent prompts, one [section] per agent
+├── agent_utils.py                       # load_instructions() — parses the sectioned prompt file
+├── requirements.txt
+└── .env.example
+```
+
+---
+
+## Key design notes
+
+**Why concurrent?** Each agent's analysis is independent — skills matching doesn't need the culture assessment and vice versa. Running them in parallel cuts wall-clock time to roughly that of the slowest single agent rather than the sum of all three.
+
+**Why separate instruction files?** Keeping agent prompts in `job_posting_analyzer_instructions.txt` (one `[section]` per agent) makes them easy to read, edit, and version without touching the orchestration code.
+
+**Extending this:** Adding a fourth agent (e.g. a `growth_assessor` that evaluates career progression signals) is a single `client.as_agent(...)` call and a new `[section]` in the instructions file.
