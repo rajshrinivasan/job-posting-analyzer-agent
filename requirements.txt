@@ -3,3 +3,6 @@ agent-framework-core
 agent-framework-orchestrations
 openai
 python-docx
+fastapi
+uvicorn[standard]
+python-multipart

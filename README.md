@@ -35,6 +35,7 @@ Three specialist agents analyse the same job posting simultaneously — no agent
 - **Python 3.10+**
 - [`agent-framework-core`](https://pypi.org/project/agent-framework-core/) + [`agent-framework-orchestrations`](https://pypi.org/project/agent-framework-orchestrations/) — lightweight agent abstractions and the `ConcurrentBuilder` orchestration pattern
 - **OpenAI `gpt-4o`** via `agent-framework-openai`
+- **FastAPI** + **uvicorn** — web interface with SSE streaming
 - `python-docx` — reads `.docx` CV files
 - `python-dotenv` — loads the API key from `.env`
 
@@ -81,6 +82,16 @@ OPENAI_API_KEY="sk-..."
 ---
 
 ## Usage
+
+### Web UI
+
+```bash
+uvicorn api:app --reload
+```
+
+Open [http://localhost:8000](http://localhost:8000) in your browser. Paste the job posting, upload a `.docx` CV, and hit **Analyse**. Each agent card appears and fills in as that agent finishes — you see results arrive in real time via SSE.
+
+### CLI
 
 ```bash
 python job_posting_analyzer.py <path/to/job_posting.txt> <path/to/cv.docx>
@@ -161,9 +172,12 @@ Negotiation note: Candidate has leverage on the core stack; Kubernetes/Terraform
 ## Project structure
 
 ```
-├── job_posting_analyzer.py              # Entry point — builds and runs the concurrent workflow
+├── api.py                               # FastAPI app — SSE /analyse endpoint + serves index.html
+├── job_posting_analyzer.py              # CLI entry point — same agents, terminal output
 ├── job_posting_analyzer_instructions.txt # Agent prompts, one [section] per agent
 ├── agent_utils.py                       # load_instructions() — parses the sectioned prompt file
+├── static/
+│   └── index.html                       # Single-page web UI (vanilla JS, no framework)
 ├── requirements.txt
 └── .env.example
 ```

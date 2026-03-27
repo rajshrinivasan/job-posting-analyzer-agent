@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Posting Analyzer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #F0F4F8;
+      --surface:   #FFFFFF;
+      --border:    #DDE3ED;
+      --text:      #1A202C;
+      --muted:     #5A6479;
+      --blue:      #4A90D9;
+      --green:     #5BAD6F;
+      --amber:     #E8A838;
+      --blue-dark: #357ABD;
+      --radius:    10px;
+      --shadow:    0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0 0 60px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 24px 0;
+      text-align: center;
+    }
+    header h1 { font-size: 1.65rem; font-weight: 700; letter-spacing: -0.3px; }
+    header p  { margin-top: 6px; color: var(--muted); font-size: 0.93rem; }
+
+    .parallel-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 12px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      background: #EEF4FF;
+      border: 1px solid #C7D9F5;
+      font-size: 0.78rem;
+      color: var(--blue-dark);
+      font-weight: 500;
+    }
+    .parallel-badge .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--blue);
+    }
+
+    /* ── Layout ── */
+    .container { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+    /* ── Form card ── */
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+      margin-top: 32px;
+    }
+    .form-card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 18px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+    label span { font-weight: 400; color: var(--muted); margin-left: 4px; }
+
+    textarea {
+      width: 100%; height: 220px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 12px 14px;
+      font-size: 0.88rem;
+      font-family: inherit;
+      color: var(--text);
+      resize: vertical;
+      background: #FAFBFD;
+      transition: border-color 0.2s;
+      line-height: 1.6;
+    }
+    textarea:focus { outline: none; border-color: var(--blue); background: #fff; }
+
+    /* ── File drop zone ── */
+    .drop-zone {
+      width: 100%; height: 220px;
+      border: 2px dashed var(--border);
+      border-radius: 7px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      background: #FAFBFD;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--blue); background: #EEF4FF; }
+    .drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .drop-zone .icon { font-size: 2rem; line-height: 1; }
+    .drop-zone .hint { font-size: 0.85rem; color: var(--muted); text-align: center; }
+    .drop-zone .hint strong { color: var(--blue); }
+    .drop-zone .file-name {
+      font-size: 0.83rem; font-weight: 600; color: var(--green);
+      max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* ── Analyse button ── */
+    .btn-analyse {
+      width: 100%; margin-top: 20px;
+      padding: 14px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 1rem; font-weight: 600;
+      border: none; border-radius: 7px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      letter-spacing: 0.2px;
+    }
+    .btn-analyse:hover:not(:disabled) { background: var(--blue-dark); }
+    .btn-analyse:active:not(:disabled) { transform: scale(0.99); }
+    .btn-analyse:disabled { background: #A0B4CC; cursor: not-allowed; }
+
+    /* ── Results section ── */
+    #results { margin-top: 36px; }
+    .results-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 20px;
+    }
+    .results-header h2 { font-size: 1rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .running-indicator {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.8rem; color: var(--muted);
+    }
+
+    .cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    @media (max-width: 800px) { .cards-grid { grid-template-columns: 1fr; } }
+
+    /* ── Agent card ── */
+    .agent-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      opacity: 0; transform: translateY(10px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+    .agent-card.visible { opacity: 1; transform: translateY(0); }
+
+    .card-header {
+      padding: 14px 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .card-header .agent-icon { font-size: 1.25rem; }
+    .card-header h3 { font-size: 0.95rem; font-weight: 700; color: #fff; flex: 1; }
+    .status-chip {
+      font-size: 0.7rem; font-weight: 600; padding: 3px 8px;
+      border-radius: 12px; background: rgba(255,255,255,0.25);
+      color: #fff; white-space: nowrap;
+    }
+    .status-chip.done { background: rgba(255,255,255,0.4); }
+
+    .card-body { padding: 18px; flex: 1; min-height: 160px; display: flex; align-items: center; justify-content: center; }
+
+    /* ── Spinner ── */
+    .spinner-wrap { text-align: center; }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 10px;
+    }
+    .spinner-label { font-size: 0.8rem; color: var(--muted); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Card content ── */
+    .card-content {
+      width: 100%; align-self: flex-start;
+      font-size: 0.87rem; line-height: 1.7; color: var(--text);
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .content-line { margin-bottom: 8px; }
+    .content-line:last-child { margin-bottom: 0; }
+    .content-label { font-weight: 700; color: var(--text); }
+    .verdict-line {
+      margin-top: 12px; padding: 9px 12px;
+      border-radius: 6px; background: var(--bg);
+      border-left: 3px solid var(--border);
+      font-size: 0.85rem;
+    }
+
+    /* ── Error state ── */
+    .card-error {
+      font-size: 0.83rem; color: #C0392B;
+      background: #FEF2F2; border-radius: 6px;
+      padding: 10px 12px; width: 100%;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center; margin-top: 48px;
+      font-size: 0.78rem; color: var(--muted);
+    }
+    footer a { color: var(--blue); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Job Posting Analyzer</h1>
+  <p>Paste a job posting and upload your CV — three specialist agents analyse it simultaneously.</p>
+  <div class="parallel-badge">
+    <span class="dot"></span>
+    Concurrent multi-agent orchestration
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ── Input form ── -->
+  <div class="form-card">
+    <h2>Input</h2>
+    <div class="form-grid">
+      <div>
+        <label for="jobPosting">Job Posting <span>plain text</span></label>
+        <textarea id="jobPosting" placeholder="Paste the full job description here…"></textarea>
+      </div>
+      <div>
+        <label>Candidate CV <span>.docx file</span></label>
+        <div class="drop-zone" id="dropZone">
+          <input type="file" id="cvFile" accept=".docx" />
+          <div class="icon">📄</div>
+          <div class="hint"><strong>Click to browse</strong> or drag &amp; drop<br/>.docx files only</div>
+          <div class="file-name" id="fileName" hidden></div>
+        </div>
+      </div>
+    </div>
+    <button class="btn-analyse" id="analyseBtn">Analyse →</button>
+  </div>
+
+  <!-- ── Results ── -->
+  <div id="results" hidden>
+    <div class="results-header">
+      <h2>Analysis</h2>
+      <div class="running-indicator" id="runningIndicator">
+        <div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0;"></div>
+        <span>Three agents running in parallel…</span>
+      </div>
+    </div>
+    <div class="cards-grid">
+
+      <div class="agent-card" id="card-skills_matcher">
+        <div class="card-header" style="background: var(--blue);">
+          <span class="agent-icon">🎯</span>
+          <h3>Skills Match</h3>
+          <span class="status-chip" id="chip-skills_matcher">Analysing…</span>
+        </div>
+        <div class="card-body" id="body-skills_matcher">
+          <div class="spinner-wrap">
+            <div class="spinner"></div>
+            <div class="spinner-label">skills_matcher running…</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="agent-card" id="card-culture_assessor">
+        <div class="card-header" style="background: var(--green);">
+          <span class="agent-icon">🏢</span>
+          <h3>Culture Assessment</h3>
+          <span class="status-chip" id="chip-culture_assessor">Analysing…</span>
+        </div>
+        <div class="card-body" id="body-culture_assessor">
+          <div class="spinner-wrap">
+            <div class="spinner"></div>
+            <div class="spinner-label">culture_assessor running…</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="agent-card" id="card-salary_estimator">
+        <div class="card-header" style="background: var(--amber);">
+          <span class="agent-icon">💰</span>
+          <h3>Salary Estimate</h3>
+          <span class="status-chip" id="chip-salary_estimator">Analysing…</span>
+        </div>
+        <div class="card-body" id="body-salary_estimator">
+          <div class="spinner-wrap">
+            <div class="spinner"></div>
+            <div class="spinner-label">salary_estimator running…</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <p>
+    Concurrent orchestration via
+    <a href="https://pypi.org/project/agent-framework-orchestrations/" target="_blank">agent-framework-orchestrations</a>
+    · Powered by OpenAI gpt-4o
+  </p>
+</footer>
+
+<script>
+  // ── File drop zone ──────────────────────────────────────────────────────────
+  const dropZone = document.getElementById('dropZone');
+  const cvFile   = document.getElementById('cvFile');
+  const fileName = document.getElementById('fileName');
+
+  cvFile.addEventListener('change', () => {
+    if (cvFile.files[0]) showFile(cvFile.files[0].name);
+  });
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.docx')) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      cvFile.files = dt.files;
+      showFile(file.name);
+    }
+  });
+
+  function showFile(name) {
+    fileName.textContent = '✓ ' + name;
+    fileName.hidden = false;
+    dropZone.querySelector('.hint').hidden = true;
+    dropZone.querySelector('.icon').hidden = true;
+  }
+
+  // ── Analyse ─────────────────────────────────────────────────────────────────
+  const analyseBtn = document.getElementById('analyseBtn');
+  analyseBtn.addEventListener('click', runAnalysis);
+
+  async function runAnalysis() {
+    const jobPosting = document.getElementById('jobPosting').value.trim();
+    const file = cvFile.files[0];
+
+    if (!jobPosting) { alert('Please paste a job posting.'); return; }
+    if (!file)        { alert('Please upload a CV (.docx).'); return; }
+
+    // Reset + show results section
+    resetCards();
+    document.getElementById('results').hidden = false;
+    document.getElementById('runningIndicator').hidden = false;
+    analyseBtn.disabled = true;
+    analyseBtn.textContent = 'Analysing…';
+
+    // Animate cards in
+    ['skills_matcher', 'culture_assessor', 'salary_estimator'].forEach((id, i) => {
+      setTimeout(() => document.getElementById('card-' + id).classList.add('visible'), i * 80);
+    });
+
+    const formData = new FormData();
+    formData.append('job_posting', jobPosting);
+    formData.append('cv_file', file);
+
+    try {
+      const response = await fetch('/analyse', { method: 'POST', body: formData });
+      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+      const reader  = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split('\n\n');
+        buffer = chunks.pop();
+        for (const chunk of chunks) {
+          if (chunk.startsWith('data: ')) {
+            try { handleEvent(JSON.parse(chunk.slice(6).trim())); }
+            catch (_) { /* malformed chunk, skip */ }
+          }
+        }
+      }
+    } catch (err) {
+      showFatal(err.message);
+    } finally {
+      analyseBtn.disabled = false;
+      analyseBtn.textContent = 'Analyse →';
+      document.getElementById('runningIndicator').hidden = true;
+    }
+  }
+
+  // ── SSE event handler ───────────────────────────────────────────────────────
+  function handleEvent(ev) {
+    if (ev.type === 'result') fillCard(ev.agent, ev.content);
+    if (ev.type === 'error')  fillError(ev.agent, ev.message);
+    if (ev.type === 'fatal')  showFatal(ev.message);
+  }
+
+  // ── Card rendering ──────────────────────────────────────────────────────────
+  const VERDICT_LABELS = ['verdict', 'negotiation note', 'culture verdict', 'match verdict'];
+
+  function fillCard(agentName, rawText) {
+    const body = document.getElementById('body-' + agentName);
+    const chip = document.getElementById('chip-' + agentName);
+    if (!body) return;
+
+    chip.textContent = 'Done';
+    chip.classList.add('done');
+
+    const lines = rawText.trim().split('\n').filter(l => l.trim());
+    const html  = lines.map(line => {
+      const colon = line.indexOf(':');
+      if (colon === -1) return `<div class="content-line">${esc(line)}</div>`;
+
+      const label = line.slice(0, colon).trim();
+      const value = line.slice(colon + 1).trim();
+      const isVerdict = VERDICT_LABELS.some(v => label.toLowerCase().includes(v));
+
+      if (isVerdict) {
+        return `<div class="verdict-line"><span class="content-label">${esc(label)}:</span> ${esc(value)}</div>`;
+      }
+      return `<div class="content-line"><span class="content-label">${esc(label)}:</span> ${esc(value)}</div>`;
+    }).join('');
+
+    body.innerHTML = `<div class="card-content">${html}</div>`;
+  }
+
+  function fillError(agentName, message) {
+    const body = document.getElementById('body-' + agentName);
+    const chip = document.getElementById('chip-' + agentName);
+    if (!body) return;
+    chip.textContent = 'Error';
+    body.innerHTML = `<div class="card-error">⚠ ${esc(message)}</div>`;
+  }
+
+  function showFatal(message) {
+    ['skills_matcher', 'culture_assessor', 'salary_estimator'].forEach(name => {
+      const body = document.getElementById('body-' + name);
+      if (body && body.querySelector('.spinner-wrap')) fillError(name, message);
+    });
+  }
+
+  function resetCards() {
+    ['skills_matcher', 'culture_assessor', 'salary_estimator'].forEach(name => {
+      const card = document.getElementById('card-' + name);
+      const body = document.getElementById('body-' + name);
+      const chip = document.getElementById('chip-' + name);
+      card.classList.remove('visible');
+      chip.textContent = 'Analysing…';
+      chip.classList.remove('done');
+      const spinnerLabel = name.replace('_', '_') + ' running…';
+      body.innerHTML = `<div class="spinner-wrap"><div class="spinner"></div><div class="spinner-label">${name} running…</div></div>`;
+    });
+  }
+
+  function esc(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
