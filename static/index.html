@@ -415,6 +415,7 @@
     if (ev.type === 'result') fillCard(ev.agent, ev.content);
     if (ev.type === 'error')  fillError(ev.agent, ev.message);
     if (ev.type === 'fatal')  showFatal(ev.message);
+    if (ev.type === 'done')   document.getElementById('runningIndicator').hidden = true;
   }
 
   // ── Card rendering ──────────────────────────────────────────────────────────
