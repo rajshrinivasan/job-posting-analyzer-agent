@@ -388,19 +388,24 @@
       const decoder = new TextDecoder();
       let buffer = '';
 
+      function processChunk(chunk) {
+        if (chunk.startsWith('data: ')) {
+          try { handleEvent(JSON.parse(chunk.slice(6).trim())); }
+          catch (_) { /* malformed chunk, skip */ }
+        }
+      }
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         const chunks = buffer.split('\n\n');
         buffer = chunks.pop();
-        for (const chunk of chunks) {
-          if (chunk.startsWith('data: ')) {
-            try { handleEvent(JSON.parse(chunk.slice(6).trim())); }
-            catch (_) { /* malformed chunk, skip */ }
-          }
-        }
+        chunks.forEach(processChunk);
       }
+
+      // Flush any remaining buffered data after stream closes
+      if (buffer.trim()) processChunk(buffer.trim());
     } catch (err) {
       showFatal(err.message);
     } finally {
