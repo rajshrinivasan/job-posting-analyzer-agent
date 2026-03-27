@@ -365,6 +365,7 @@
     if (!file)        { alert('Please upload a CV (.docx).'); return; }
 
     // Reset + show results section
+    completedCount = 0;
     resetCards();
     document.getElementById('results').hidden = false;
     document.getElementById('runningIndicator').hidden = false;
@@ -420,11 +421,17 @@
     if (ev.type === 'result') fillCard(ev.agent, ev.content);
     if (ev.type === 'error')  fillError(ev.agent, ev.message);
     if (ev.type === 'fatal')  showFatal(ev.message);
-    if (ev.type === 'done')   document.getElementById('runningIndicator').hidden = true;
+    if (ev.type === 'done')   hideRunningIndicator();
+  }
+
+  function hideRunningIndicator() {
+    document.getElementById('runningIndicator').hidden = true;
   }
 
   // ── Card rendering ──────────────────────────────────────────────────────────
+  const AGENT_NAMES   = ['skills_matcher', 'culture_assessor', 'salary_estimator'];
   const VERDICT_LABELS = ['verdict', 'negotiation note', 'culture verdict', 'match verdict'];
+  let completedCount  = 0;
 
   function fillCard(agentName, rawText) {
     const body = document.getElementById('body-' + agentName);
@@ -433,6 +440,9 @@
 
     chip.textContent = 'Done';
     chip.classList.add('done');
+
+    completedCount++;
+    if (completedCount >= AGENT_NAMES.length) hideRunningIndicator();
 
     const lines = rawText.trim().split('\n').filter(l => l.trim());
     const html  = lines.map(line => {
